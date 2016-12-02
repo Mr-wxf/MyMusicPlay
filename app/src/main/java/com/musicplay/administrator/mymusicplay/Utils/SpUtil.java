@@ -34,5 +34,16 @@ public class SpUtil {
         boolean result = sp.getBoolean(key, false);
         return result;
     }
+    public static void putInt(Context context,String key ,int vlaue) {
+        SharedPreferences sp = context.getSharedPreferences("intValue", Context.MODE_APPEND);
+        SharedPreferences.Editor edit = sp.edit();
+        edit.putInt(key, vlaue);
+        edit.commit();
+    }
 
+    public static int getInt(Context context,String key) {
+        SharedPreferences sp = context.getSharedPreferences("intValue", Context.MODE_APPEND);
+        int result = sp.getInt(key, 0);
+        return result;
+    }
 }
