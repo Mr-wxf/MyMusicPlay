@@ -13,6 +13,8 @@ import java.util.List;
 
 /**
  * Created by Administrator on 2016/12/1.
+ *
+ * 查询手机中的所有歌曲
  */
 public class QuerySong {
     private Context context;

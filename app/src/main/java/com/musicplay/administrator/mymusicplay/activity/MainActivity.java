@@ -15,7 +15,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.SeekBar;
 
@@ -43,20 +42,45 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ServiceConnection serviceConnection;
     private int index = 0;
     private SeekBar sb_volume;
-
+    private boolean isFirstPlay = false;//判断是不是第一次进去按下播放键
+    private boolean isRunning=true;//判断线程是否在运行
+    private AudioManager mAudioManager;
+    private int volumeMax;
+    private int volumeCurrent;
+    private SeekBar sb_progress;
+    private Thread uiThread;
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            ListViewAdapter listViewAdapter = new ListViewAdapter(context, songLists);
-            lv_musicitem.setAdapter(listViewAdapter);
+            switch (msg.what) {
+                case 0:
+                    ListViewAdapter listViewAdapter = new ListViewAdapter(context, songLists);
+                    lv_musicitem.setAdapter(listViewAdapter);
+                    break;
+                case 1:
+
+
+                    int currentPosition = playMusicService.mediaPlayer.getCurrentPosition();//获取当前播放时间
+                    int duration = playMusicService.mediaPlayer.getDuration();//总是时间
+                    int i = (int) ((double) currentPosition / (double) duration * sb_progress.getMax());
+                    Log.d("+++++++++++++", currentPosition + "");
+                    Log.d("+++++++++++++", i + "");
+                    if (!playMusicService.isPlaying() && currentPosition == duration && sb_progress.getProgress() == 0) {
+                        sb_progress.setProgress(0);
+                    } else if (playMusicService.isPlaying()) {
+                        sb_progress.setProgress(i);
+                    } else if (!playMusicService.isPlaying()) {
+
+                        sb_progress.setProgress(sb_progress.getProgress());
+                    }
+                    break;
+            }
 
 
         }
     };
-    private AudioManager mAudioManager;
-    private int volumeMax;
-    private int volumeCurrent;
+
 
     private void playMusic(int position) {
 //        playServiceIntent = new Intent(context, PlayMusicService.class);
@@ -74,9 +98,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         context = this;
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         //音量最大值
-        volumeMax = mAudioManager.getStreamMaxVolume( AudioManager.STREAM_MUSIC );
+        volumeMax = mAudioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         //音量当前值
-        volumeCurrent = mAudioManager.getStreamVolume( AudioManager.STREAM_MUSIC );
+        volumeCurrent = mAudioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
         initUI();
         initData();
 
@@ -90,11 +114,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 playMusicService = binder.getService();
 
             }
+
             @Override
             public void onServiceDisconnected(ComponentName name) {
             }
         };
         bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+
     }
 
 
@@ -102,6 +128,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onStop() {
         super.onStop();
         unbindService(serviceConnection);
+        isRunning=false;
+//uiThread.interrupt();
     }
 
     private void initData() {
@@ -126,13 +154,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         bt_forward = (Button) findViewById(R.id.bt_forward);
         lv_musicitem = (ListView) findViewById(R.id.lv_musicitem);
         sb_volume = (SeekBar) findViewById(R.id.sb_volume);
+        sb_progress = (SeekBar) findViewById(R.id.sb_progress);
         bt_back.setOnClickListener(this);
         bt_play.setOnClickListener(this);
         bt_stop.setOnClickListener(this);
         bt_forward.setOnClickListener(this);
         lv_musicitem.setOnItemClickListener(this);
         sb_volume.setOnSeekBarChangeListener(this);
-        sb_volume.setProgress((int) ((double)volumeCurrent/(double)volumeMax*sb_volume.getMax()));
+        sb_progress.setOnSeekBarChangeListener(this);
+        sb_volume.setProgress((int) ((double) volumeCurrent / (double) volumeMax * sb_volume.getMax()));
     }
 
     @Override
@@ -153,22 +183,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.bt_play:
                 bt_play.setVisibility(View.GONE);
                 bt_stop.setVisibility(View.VISIBLE);
+
                 if (playMusicService.isPlaying()) {
-                    playMusicService.stopMusic();
-                } else {
+                    playMusicService.pause();
+                } else if (!isFirstPlay) {
                     int playPosition = SpUtil.getInt(context, Value.POSITIONVALUE);
                     playServiceIntent.putExtra("url", songLists.get(playPosition).url);
                     startService(playServiceIntent);
+                } else {
+                    playMusicService.playMusic();
                 }
+                isFirstPlay = true;
                 break;
             case R.id.bt_stop:
                 bt_stop.setVisibility(View.GONE);
                 bt_play.setVisibility(View.VISIBLE);
                 Log.d("stopMusic", "stopMusic");
-                if (!playMusicService.isPlaying()) {
-                    playMusicService.playMusic();
+                if (playMusicService.isPlaying()) {
+                    playMusicService.pause();
                 } else {
-                    playMusicService.stopMusic();
+                    playMusicService.playMusic();
                 }
 //                playMusicService.playMusic();
                 break;
@@ -188,17 +222,34 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        Log.d("log", "ondestory");
-    }
 
     @Override
     protected void onStart() {
         super.onStart();
         Log.d("log", "onStart");
         bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+
+    }
+
+
+    @Override
+    protected void onResume() {
+        isRunning=true;
+        uiThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    while (isRunning) {
+                       Thread.sleep(1000);
+                        handler.sendEmptyMessage(1);
+                    }
+                } catch (InterruptedException e) {
+
+                }
+            }
+        });
+        uiThread.start();
+        super.onResume();
     }
 
     @Override
@@ -209,9 +260,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             intent.addCategory(Intent.CATEGORY_HOME);
             startActivity(intent);
         }
-        return super.onKeyDown(keyCode, event);
+        return false;
     }
-
 
 
     @Override
@@ -224,11 +274,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-        int maxProgress = seekBar.getMax();
-        int voleme = (int) ((double)volumeMax / (double)maxProgress * progress);
-        mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC,voleme,AudioManager.FLAG_ALLOW_RINGER_MODES);
-        Log.d("Music",volumeMax+"__"+volumeCurrent);
-        Log.d("Progress",voleme+"");
+
+        switch (seekBar.getId()) {
+            case R.id.sb_volume:
+                int maxProgress = seekBar.getMax();
+                int voleme = (int) ((double) volumeMax / (double) maxProgress * progress);
+                mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC, voleme, AudioManager.FLAG_ALLOW_RINGER_MODES);
+                Log.d("Music", volumeMax + "__" + volumeCurrent);
+                Log.d("Progress", voleme + "");
+                break;
+
+            case R.id.sb_progress:
+                if (progress + 1 >= seekBar.getMax()) {
+                    int position = SpUtil.getInt(context, Value.POSITIONVALUE);
+                    if (position >= songLists.size() - 1) {
+                        position = -1;
+                    }
+                    playServiceIntent.putExtra("url", songLists.get(position + 1).url);
+                    startService(playServiceIntent);
+                    position += 1;
+                    SpUtil.putInt(context, Value.POSITIONVALUE, position);
+                }
+                break;
+        }
+
     }
 
     @Override
@@ -238,6 +307,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onStopTrackingTouch(SeekBar seekBar) {
-
+        switch (seekBar.getId()) {
+            case R.id.sb_progress:
+                int progress = seekBar.getProgress();
+                int position = SpUtil.getInt(context, Value.POSITIONVALUE);
+                int durationTotal = songLists.get(position).duration;
+                int maxMusicProgress = seekBar.getMax();
+                int musicProgress = (int) ((double) progress / (double) maxMusicProgress * durationTotal);
+                playMusicService.seekTo(musicProgress);
+                break;
+        }
     }
 }

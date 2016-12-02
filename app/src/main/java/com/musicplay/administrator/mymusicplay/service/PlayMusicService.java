@@ -2,17 +2,14 @@ package com.musicplay.administrator.mymusicplay.service;
 
 import android.app.Service;
 import android.content.Intent;
-import android.content.ServiceConnection;
 import android.media.MediaPlayer;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
-import java.io.IOException;
-
 public class PlayMusicService extends Service {
 
-    private MediaPlayer mediaPlayer;
+    public MediaPlayer mediaPlayer;
 
 
     @Override
@@ -27,17 +24,17 @@ public class PlayMusicService extends Service {
 
 //        Log.d("--------------",intent.getStringExtra("url"));
 //        return super.onStartCommand(intent, flags, startId);
-        if(mediaPlayer.isPlaying()){
+        if (mediaPlayer.isPlaying()) {
             mediaPlayer.stop();
         }
-            try {
-                mediaPlayer.reset();
-                mediaPlayer.setDataSource(intent.getStringExtra("url"));
-                mediaPlayer.prepare();
-                mediaPlayer.start();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        try {
+            mediaPlayer.reset();
+            mediaPlayer.setDataSource(intent.getStringExtra("url"));
+            mediaPlayer.prepare();
+            mediaPlayer.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         return super.onStartCommand(intent, flags, startId);
     }
@@ -45,7 +42,7 @@ public class PlayMusicService extends Service {
     @Override
     public void onDestroy() {
 
-        if(mediaPlayer!=null){
+        if (mediaPlayer != null) {
             mediaPlayer.stop();
             mediaPlayer.release();
         }
@@ -54,33 +51,46 @@ public class PlayMusicService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-       return  new MyIBinder();
+        return new MyIBinder();
     }
-  public class MyIBinder extends Binder {
-       public   PlayMusicService getService(){
-             return PlayMusicService.this;
-         }
 
-  }
-    public void stopMusic(){
-        if(mediaPlayer!=null&&mediaPlayer.isPlaying()){
+    public class MyIBinder extends Binder {
+        public PlayMusicService getService() {
+            return PlayMusicService.this;
+        }
+    }
+
+    public void stopMusic() {
+        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             mediaPlayer.stop();
         }
     }
-    public void playMusic()  {
-        if(mediaPlayer!=null){
-            try {
-                mediaPlayer.prepare();
-                mediaPlayer.start();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
 
-            Log.d("+++++++++++++++++++","重新播放");
+    public void playMusic() {
+        if (mediaPlayer != null) {
+            mediaPlayer.start();
+            Log.d("+++++++++++++++++++", "重新播放");
         }
     }
-    public boolean isPlaying(){
 
-        return  mediaPlayer.isPlaying();
+    public boolean isPlaying() {
+        if (mediaPlayer != null) {
+            return mediaPlayer.isPlaying();
+        }
+        return false;
+
     }
+
+    public void seekTo(int duration) {
+        if (mediaPlayer != null) {
+            mediaPlayer.seekTo(duration);
+        }
+    }
+
+    public void pause() {
+        if (mediaPlayer != null) {
+            mediaPlayer.pause();
+        }
+    }
+
 }
