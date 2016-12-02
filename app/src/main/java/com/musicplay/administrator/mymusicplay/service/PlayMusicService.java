@@ -30,14 +30,15 @@ public class PlayMusicService extends Service {
         if(mediaPlayer.isPlaying()){
             mediaPlayer.stop();
         }
-        try {
-            mediaPlayer.reset();
-            mediaPlayer.setDataSource(intent.getStringExtra("url"));
-            mediaPlayer.prepare();
-            mediaPlayer.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            try {
+                mediaPlayer.reset();
+                mediaPlayer.setDataSource(intent.getStringExtra("url"));
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -66,16 +67,20 @@ public class PlayMusicService extends Service {
             mediaPlayer.stop();
         }
     }
-    public void playMusic() throws IOException {
+    public void playMusic()  {
         if(mediaPlayer!=null){
-            mediaPlayer.prepare();
-            mediaPlayer.start();
+            try {
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
             Log.d("+++++++++++++++++++","重新播放");
         }
     }
-    public void palyInToMusic(){
-        if(mediaPlayer!=null){
-            mediaPlayer.stop();
-        }
+    public boolean isPlaying(){
+
+        return  mediaPlayer.isPlaying();
     }
 }

@@ -4,16 +4,20 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ListView;
+import android.widget.SeekBar;
 
 import com.musicplay.administrator.mymusicplay.Bean.SongList;
 import com.musicplay.administrator.mymusicplay.R;
@@ -23,10 +27,9 @@ import com.musicplay.administrator.mymusicplay.Value.Value;
 import com.musicplay.administrator.mymusicplay.adapter.ListViewAdapter;
 import com.musicplay.administrator.mymusicplay.service.PlayMusicService;
 
-import java.io.IOException;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, AdapterView.OnItemClickListener, SeekBar.OnSeekBarChangeListener {
 
     private Button bt_forward;
     private Button bt_stop;
@@ -35,6 +38,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Context context;
     private List<SongList> songLists;
     private ListView lv_musicitem;
+    private PlayMusicService playMusicService;
+    private Intent playServiceIntent;
+    private ServiceConnection serviceConnection;
+    private int index = 0;
+    private SeekBar sb_volume;
+
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -45,10 +54,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         }
     };
-    private PlayMusicService playMusicService;
-    private Intent playServiceIntent;
-    private ServiceConnection serviceConnection;
-    private int index=0;
+    private AudioManager mAudioManager;
+    private int volumeMax;
+    private int volumeCurrent;
 
     private void playMusic(int position) {
 //        playServiceIntent = new Intent(context, PlayMusicService.class);
@@ -62,10 +70,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        Log.d("oncreat", "oncreat");
         context = this;
+        mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        //音量最大值
+        volumeMax = mAudioManager.getStreamMaxVolume( AudioManager.STREAM_MUSIC );
+        //音量当前值
+        volumeCurrent = mAudioManager.getStreamVolume( AudioManager.STREAM_MUSIC );
         initUI();
         initData();
+
+
         playServiceIntent = new Intent(context, PlayMusicService.class);
+        startService(playServiceIntent);
         serviceConnection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
@@ -73,14 +90,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 playMusicService = binder.getService();
 
             }
-
             @Override
             public void onServiceDisconnected(ComponentName name) {
-
             }
         };
-
         bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unbindService(serviceConnection);
     }
 
     private void initData() {
@@ -104,67 +125,119 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         bt_stop = (Button) findViewById(R.id.bt_stop);
         bt_forward = (Button) findViewById(R.id.bt_forward);
         lv_musicitem = (ListView) findViewById(R.id.lv_musicitem);
+        sb_volume = (SeekBar) findViewById(R.id.sb_volume);
         bt_back.setOnClickListener(this);
         bt_play.setOnClickListener(this);
         bt_stop.setOnClickListener(this);
         bt_forward.setOnClickListener(this);
-        lv_musicitem.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                playMusic(position);
-                SpUtil.putInt(context, Value.POSITIONVALUE,position);
-                bt_play.setVisibility(View.VISIBLE);
-                bt_stop.setVisibility(View.GONE);
-            }
-        });
+        lv_musicitem.setOnItemClickListener(this);
+        sb_volume.setOnSeekBarChangeListener(this);
+        sb_volume.setProgress((int) ((double)volumeCurrent/(double)volumeMax*sb_volume.getMax()));
     }
 
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.bt_back:
+                bt_stop.setVisibility(View.GONE);
+                bt_play.setVisibility(View.VISIBLE);
                 int backPosition = SpUtil.getInt(context, Value.POSITIONVALUE);
-                if (backPosition<=0){
-                    backPosition=songLists.size()-1;
+                if (backPosition <= 0) {
+                    backPosition = songLists.size();
                 }
-                playServiceIntent.putExtra("url", songLists.get(backPosition-1).url);
+                playServiceIntent.putExtra("url", songLists.get(backPosition - 1).url);
                 startService(playServiceIntent);
-                index = backPosition-1;
-                SpUtil.putInt(context,Value.POSITIONVALUE,index);
+                index = backPosition - 1;
+                SpUtil.putInt(context, Value.POSITIONVALUE, index);
                 break;
             case R.id.bt_play:
                 bt_play.setVisibility(View.GONE);
                 bt_stop.setVisibility(View.VISIBLE);
-                playMusicService.stopMusic();
+                if (playMusicService.isPlaying()) {
+                    playMusicService.stopMusic();
+                } else {
+                    int playPosition = SpUtil.getInt(context, Value.POSITIONVALUE);
+                    playServiceIntent.putExtra("url", songLists.get(playPosition).url);
+                    startService(playServiceIntent);
+                }
                 break;
             case R.id.bt_stop:
                 bt_stop.setVisibility(View.GONE);
                 bt_play.setVisibility(View.VISIBLE);
-                try {
+                Log.d("stopMusic", "stopMusic");
+                if (!playMusicService.isPlaying()) {
                     playMusicService.playMusic();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } else {
+                    playMusicService.stopMusic();
                 }
-
+//                playMusicService.playMusic();
                 break;
             case R.id.bt_forward:
+                bt_stop.setVisibility(View.GONE);
+                bt_play.setVisibility(View.VISIBLE);
                 int forwardPosition = SpUtil.getInt(context, Value.POSITIONVALUE);
-                if (forwardPosition>=songLists.size()-1){
-                    forwardPosition=-1;
+                if (forwardPosition >= songLists.size() - 1) {
+                    forwardPosition = -1;
                 }
-                playServiceIntent.putExtra("url", songLists.get(forwardPosition+1).url);
+                playServiceIntent.putExtra("url", songLists.get(forwardPosition + 1).url);
                 startService(playServiceIntent);
-                index = forwardPosition+1;
-                SpUtil.putInt(context,Value.POSITIONVALUE,index);
+                index = forwardPosition + 1;
+                SpUtil.putInt(context, Value.POSITIONVALUE, index);
                 break;
+
         }
     }
 
     @Override
     protected void onDestroy() {
-        unbindService(serviceConnection);
-        stopService(playServiceIntent);
         super.onDestroy();
+        Log.d("log", "ondestory");
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d("log", "onStart");
+        bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);// 注意
+            intent.addCategory(Intent.CATEGORY_HOME);
+            startActivity(intent);
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        playMusic(position);
+        SpUtil.putInt(context, Value.POSITIONVALUE, position);
+        bt_play.setVisibility(View.VISIBLE);
+        bt_stop.setVisibility(View.GONE);
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        int maxProgress = seekBar.getMax();
+        int voleme = (int) ((double)volumeMax / (double)maxProgress * progress);
+        mAudioManager.setStreamVolume(AudioManager.STREAM_MUSIC,voleme,AudioManager.FLAG_ALLOW_RINGER_MODES);
+        Log.d("Music",volumeMax+"__"+volumeCurrent);
+        Log.d("Progress",voleme+"");
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
 
     }
 }
