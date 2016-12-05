@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -16,7 +17,9 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
 
 import com.musicplay.administrator.mymusicplay.Bean.SongList;
 import com.musicplay.administrator.mymusicplay.R;
@@ -43,11 +46,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private int index = 0;
     private SeekBar sb_volume;
     private boolean isFirstPlay = false;//判断是不是第一次进去按下播放键
-    private boolean isRunning=true;//判断线程是否在运行
+    private boolean isRunning = true;//判断线程是否在运行
     private AudioManager mAudioManager;
     private int volumeMax;
     private int volumeCurrent;
     private SeekBar sb_progress;
+    private TextView tv_currentTime;
+    private TextView tv_totalTime;
+    private RelativeLayout rl_bottom;
+
     private Thread uiThread;
     private Handler handler = new Handler() {
         @Override
@@ -59,8 +66,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     lv_musicitem.setAdapter(listViewAdapter);
                     break;
                 case 1:
-
-
                     int currentPosition = playMusicService.mediaPlayer.getCurrentPosition();//获取当前播放时间
                     int duration = playMusicService.mediaPlayer.getDuration();//总是时间
                     int i = (int) ((double) currentPosition / (double) duration * sb_progress.getMax());
@@ -74,6 +79,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
                         sb_progress.setProgress(sb_progress.getProgress());
                     }
+                    int currentMinutes = currentPosition / 1000 / 60;
+                    int currentSecond = currentPosition / 1000 - currentMinutes * 60;
+                    int durationMinutes = duration / 1000 / 60;
+                    int durationSecind = duration / 1000 - durationMinutes * 60;
+                    Log.d("currentMinutes", currentMinutes + "");
+                    Log.d("currentSecond", currentSecond + "");
+                    if (currentMinutes >= durationMinutes && currentSecond >= durationSecind) {
+                        currentMinutes = 0;
+                        currentSecond = 0;
+                    }
+
+                    tv_currentTime.setText(currentMinutes + ":" + currentSecond);
                     break;
             }
 
@@ -82,9 +99,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     };
 
 
+
     private void playMusic(int position) {
 //        playServiceIntent = new Intent(context, PlayMusicService.class);
         playServiceIntent.putExtra("url", songLists.get(position).url);
+        if(position>=songLists.size()-1){
+            position=-1;
+        }
+        playServiceIntent.putExtra("nextUrl",songLists.get(position+1).url);
         startService(playServiceIntent);
 //        Log.d("----------------------",position+"");
     }
@@ -120,6 +142,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         };
         bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
+        setTotalTime();
+//        tv_totalTime.setText("0:0");
 
     }
 
@@ -128,7 +152,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onStop() {
         super.onStop();
         unbindService(serviceConnection);
-        isRunning=false;
+        isRunning = false;
 //uiThread.interrupt();
     }
 
@@ -155,6 +179,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         lv_musicitem = (ListView) findViewById(R.id.lv_musicitem);
         sb_volume = (SeekBar) findViewById(R.id.sb_volume);
         sb_progress = (SeekBar) findViewById(R.id.sb_progress);
+        tv_totalTime = (TextView) findViewById(R.id.tv_totalTime);
+        tv_currentTime = (TextView) findViewById(R.id.tv_currentTime);
+        rl_bottom = (RelativeLayout) findViewById(R.id.rl_bottom);
+        rl_bottom.setOnClickListener(this);
         bt_back.setOnClickListener(this);
         bt_play.setOnClickListener(this);
         bt_stop.setOnClickListener(this);
@@ -163,6 +191,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         sb_volume.setOnSeekBarChangeListener(this);
         sb_progress.setOnSeekBarChangeListener(this);
         sb_volume.setProgress((int) ((double) volumeCurrent / (double) volumeMax * sb_volume.getMax()));
+
+
     }
 
     @Override
@@ -175,10 +205,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if (backPosition <= 0) {
                     backPosition = songLists.size();
                 }
-                playServiceIntent.putExtra("url", songLists.get(backPosition - 1).url);
-                startService(playServiceIntent);
+                playMusic(backPosition - 1);
                 index = backPosition - 1;
                 SpUtil.putInt(context, Value.POSITIONVALUE, index);
+                setTotalTime();
                 break;
             case R.id.bt_play:
                 bt_play.setVisibility(View.GONE);
@@ -188,8 +218,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     playMusicService.pause();
                 } else if (!isFirstPlay) {
                     int playPosition = SpUtil.getInt(context, Value.POSITIONVALUE);
-                    playServiceIntent.putExtra("url", songLists.get(playPosition).url);
-                    startService(playServiceIntent);
+                    playMusic(playPosition);
+                    setTotalTime();
                 } else {
                     playMusicService.playMusic();
                 }
@@ -213,10 +243,20 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if (forwardPosition >= songLists.size() - 1) {
                     forwardPosition = -1;
                 }
-                playServiceIntent.putExtra("url", songLists.get(forwardPosition + 1).url);
-                startService(playServiceIntent);
+
                 index = forwardPosition + 1;
+                playMusic(index);
                 SpUtil.putInt(context, Value.POSITIONVALUE, index);
+                setTotalTime();
+                break;
+            case R.id.rl_bottom:
+                final int position = SpUtil.getInt(context, Value.POSITIONVALUE);
+                Intent intent = new Intent(context, SongWordActivity.class);
+                String url = songLists.get(position).url;
+                String lrcUrl = url.replace("mp3", "lrc");
+//        Log.d("url",lrcUrl);
+                intent.putExtra("lrcUrl", lrcUrl);
+                startActivity(intent);
                 break;
 
         }
@@ -227,6 +267,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onStart() {
         super.onStart();
         Log.d("log", "onStart");
+
         bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
 
     }
@@ -234,13 +275,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     protected void onResume() {
-        isRunning=true;
+        isRunning = true;
         uiThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
                     while (isRunning) {
-                       Thread.sleep(1000);
+                        Thread.sleep(1000);
                         handler.sendEmptyMessage(1);
                     }
                 } catch (InterruptedException e) {
@@ -249,6 +290,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         });
         uiThread.start();
+
         super.onResume();
     }
 
@@ -270,6 +312,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         SpUtil.putInt(context, Value.POSITIONVALUE, position);
         bt_play.setVisibility(View.VISIBLE);
         bt_stop.setVisibility(View.GONE);
+        setTotalTime();
+        Intent intent = new Intent(context, SongWordActivity.class);
+        String url = songLists.get(position).url;
+        String lrcUrl = url.replace("mp3", "lrc");
+//        Log.d("url",lrcUrl);
+        intent.putExtra("lrcUrl", lrcUrl);
+        startActivity(intent);
     }
 
     @Override
@@ -290,10 +339,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     if (position >= songLists.size() - 1) {
                         position = -1;
                     }
-                    playServiceIntent.putExtra("url", songLists.get(position + 1).url);
-                    startService(playServiceIntent);
+                    playMusic(position + 1);
                     position += 1;
                     SpUtil.putInt(context, Value.POSITIONVALUE, position);
+                    setTotalTime();
                 }
                 break;
         }
@@ -317,5 +366,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 playMusicService.seekTo(musicProgress);
                 break;
         }
+    }
+
+    public void setTotalTime() {
+        int totalTime = 0;
+        int position = SpUtil.getInt(context, Value.POSITIONVALUE);
+        Log.d("position", position + "");
+        if (songLists != null) {
+            totalTime = songLists.get(position).duration;
+        }
+//        int totalTime = songLists.get(position).duration;
+        Log.d("totalTime", totalTime + "");
+        int minutes = totalTime / 1000 / 60;
+        int second = totalTime / 1000 - minutes * 60;
+        Log.d("minutes", minutes + "");
+        Log.d("second", second + "");
+        tv_totalTime.setText(minutes + ":" + second);
     }
 }

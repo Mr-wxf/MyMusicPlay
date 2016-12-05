@@ -7,9 +7,13 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.io.IOException;
+
+
 public class PlayMusicService extends Service {
 
     public MediaPlayer mediaPlayer;
+    private String nextUrl;
 
 
     @Override
@@ -17,25 +21,46 @@ public class PlayMusicService extends Service {
         mediaPlayer = new MediaPlayer();
         super.onCreate();
 
-    }
 
+    }
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
+    public int onStartCommand( Intent intent, int flags, int startId) {
 
 //        Log.d("--------------",intent.getStringExtra("url"));
 //        return super.onStartCommand(intent, flags, startId);
+
+        nextUrl = intent.getStringExtra("nextUrl");
         if (mediaPlayer.isPlaying()) {
             mediaPlayer.stop();
         }
         try {
             mediaPlayer.reset();
             mediaPlayer.setDataSource(intent.getStringExtra("url"));
+
             mediaPlayer.prepare();
             mediaPlayer.start();
+
+
         } catch (Exception e) {
             e.printStackTrace();
         }
+        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                try {
+                    if(nextUrl!=null){
+                        mp.reset();
+                        mp.setDataSource(nextUrl);
 
+                        mp.prepare();
+                        mp.start();
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -60,11 +85,7 @@ public class PlayMusicService extends Service {
         }
     }
 
-    public void stopMusic() {
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            mediaPlayer.stop();
-        }
-    }
+
 
     public void playMusic() {
         if (mediaPlayer != null) {
@@ -92,5 +113,10 @@ public class PlayMusicService extends Service {
             mediaPlayer.pause();
         }
     }
+
+    public long getCurrentPosition(){
+        return mediaPlayer.getCurrentPosition();
+    }
+
 
 }
