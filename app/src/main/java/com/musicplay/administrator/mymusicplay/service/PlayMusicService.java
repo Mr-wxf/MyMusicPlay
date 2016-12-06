@@ -23,8 +23,9 @@ public class PlayMusicService extends Service {
 
 
     }
+
     @Override
-    public int onStartCommand( Intent intent, int flags, int startId) {
+    public int onStartCommand(Intent intent, int flags, int startId) {
 
 //        Log.d("--------------",intent.getStringExtra("url"));
 //        return super.onStartCommand(intent, flags, startId);
@@ -48,7 +49,7 @@ public class PlayMusicService extends Service {
             @Override
             public void onCompletion(MediaPlayer mp) {
                 try {
-                    if(nextUrl!=null){
+                    if (nextUrl != null) {
                         mp.reset();
                         mp.setDataSource(nextUrl);
 
@@ -85,7 +86,20 @@ public class PlayMusicService extends Service {
         }
     }
 
+    public void playOtherMusic(String url) {
+        try {
+            if (mediaPlayer != null) {
+                mediaPlayer.reset();
+                mediaPlayer.setDataSource(url);
+                mediaPlayer.prepare();
+                mediaPlayer.start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
+
+    }
 
     public void playMusic() {
         if (mediaPlayer != null) {
@@ -114,7 +128,7 @@ public class PlayMusicService extends Service {
         }
     }
 
-    public long getCurrentPosition(){
+    public long getCurrentPosition() {
         return mediaPlayer.getCurrentPosition();
     }
 

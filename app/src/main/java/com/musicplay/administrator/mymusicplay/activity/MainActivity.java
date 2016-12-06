@@ -210,7 +210,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 if (backPosition <= 0) {
                     backPosition = songLists.size();
                 }
-                playMusic(backPosition - 1);
+                playMusicService.playOtherMusic(songLists.get(backPosition - 1).url);
                 index = backPosition - 1;
                 SpUtil.putInt(context, Value.POSITIONVALUE, index);
                 setTotalTime();
@@ -223,7 +223,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     playMusicService.pause();
                 } else if (!isFirstPlay) {
                     int playPosition = SpUtil.getInt(context, Value.POSITIONVALUE);
-                    playMusic(playPosition);
+                    playMusicService.playOtherMusic(songLists.get(playPosition).url);
                     setTotalTime();
                 } else {
                     playMusicService.playMusic();
@@ -250,7 +250,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
 
                 index = forwardPosition + 1;
-                playMusic(index);
+                playMusicService.playOtherMusic(songLists.get(index).url);
                 SpUtil.putInt(context, Value.POSITIONVALUE, index);
                 setTotalTime();
                 break;
@@ -279,7 +279,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onStart() {
         super.onStart();
         Log.d("log", "onStart");
-
         bindService(playServiceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
 
     }
@@ -321,7 +320,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         if(lv_musicitem.isAllowItemClick()){
-            playMusic(position);
+            playMusicService.playOtherMusic(songLists.get(position).url);
             SpUtil.putInt(context, Value.POSITIONVALUE, position);
             bt_play.setVisibility(View.VISIBLE);
             bt_stop.setVisibility(View.GONE);
@@ -363,7 +362,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     if (position >= songLists.size() - 1) {
                         position = -1;
                     }
-                    playMusic(position + 1);
+                    playMusicService.playOtherMusic(songLists.get(position).url);
                     position += 1;
                     SpUtil.putInt(context, Value.POSITIONVALUE, position);
                     setTotalTime();
