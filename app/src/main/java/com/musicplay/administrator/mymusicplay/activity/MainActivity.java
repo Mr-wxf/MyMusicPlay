@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -16,16 +15,16 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
-import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.musicplay.administrator.mymusicplay.Bean.SongList;
 import com.musicplay.administrator.mymusicplay.R;
-import com.musicplay.administrator.mymusicplay.Utils.QuerySong;
+import com.musicplay.administrator.mymusicplay.Utils.DBSong;
 import com.musicplay.administrator.mymusicplay.Utils.SpUtil;
 import com.musicplay.administrator.mymusicplay.Value.Value;
+import com.musicplay.administrator.mymusicplay.View.SideslipListView;
 import com.musicplay.administrator.mymusicplay.adapter.ListViewAdapter;
 import com.musicplay.administrator.mymusicplay.service.PlayMusicService;
 
@@ -39,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Button bt_back;
     private Context context;
     private List<SongList> songLists;
-    private ListView lv_musicitem;
+    private SideslipListView lv_musicitem;
     private PlayMusicService playMusicService;
     private Intent playServiceIntent;
     private ServiceConnection serviceConnection;
@@ -54,15 +53,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView tv_currentTime;
     private TextView tv_totalTime;
     private RelativeLayout rl_bottom;
-
+    private ListViewAdapter listViewAdapter;
     private Thread uiThread;
     private Handler handler = new Handler() {
+
+
+
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
             switch (msg.what) {
                 case 0:
-                    ListViewAdapter listViewAdapter = new ListViewAdapter(context, songLists);
+                    listViewAdapter = new ListViewAdapter(context, songLists,lv_musicitem);
                     lv_musicitem.setAdapter(listViewAdapter);
                     break;
                 case 1:
@@ -108,6 +110,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         playServiceIntent.putExtra("nextUrl",songLists.get(position+1).url);
         startService(playServiceIntent);
+        if(playMusicService!=null){
+            listViewAdapter.setMediaPlayer(playMusicService.mediaPlayer);
+        }
+
 //        Log.d("----------------------",position+"");
     }
 
@@ -116,7 +122,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Log.d("oncreat", "oncreat");
         context = this;
         mAudioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         //音量最大值
@@ -160,7 +165,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         new Thread() {
             @Override
             public void run() {
-                QuerySong querySong = new QuerySong(context);
+                DBSong querySong = new DBSong(context);
                 songLists = querySong.querySong();
                 Log.d("............", songLists.size() + "");
                 handler.sendEmptyMessage(0);
@@ -176,7 +181,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         bt_play = (Button) findViewById(R.id.bt_play);
         bt_stop = (Button) findViewById(R.id.bt_stop);
         bt_forward = (Button) findViewById(R.id.bt_forward);
-        lv_musicitem = (ListView) findViewById(R.id.lv_musicitem);
+        lv_musicitem = (SideslipListView) findViewById(R.id.lv_musicitem);
         sb_volume = (SeekBar) findViewById(R.id.sb_volume);
         sb_progress = (SeekBar) findViewById(R.id.sb_progress);
         tv_totalTime = (TextView) findViewById(R.id.tv_totalTime);
@@ -250,12 +255,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 setTotalTime();
                 break;
             case R.id.rl_bottom:
-                final int position = SpUtil.getInt(context, Value.POSITIONVALUE);
+                int position = SpUtil.getInt(context, Value.POSITIONVALUE);
                 Intent intent = new Intent(context, SongWordActivity.class);
+//                intent.putExtra("songList", (Parcelable) songLists);
+
                 String url = songLists.get(position).url;
                 String lrcUrl = url.replace("mp3", "lrc");
-//        Log.d("url",lrcUrl);
+                if(position>=songLists.size()-1){
+                    position=-1;
+                }
+                String nextUrl = songLists.get(position+1).url;
+                String nextlrcUrl = nextUrl.replace("mp3", "lrc");
                 intent.putExtra("lrcUrl", lrcUrl);
+                intent.putExtra("nextlrcUrl", nextlrcUrl);
                 startActivity(intent);
                 break;
 
@@ -308,17 +320,29 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-        playMusic(position);
-        SpUtil.putInt(context, Value.POSITIONVALUE, position);
-        bt_play.setVisibility(View.VISIBLE);
-        bt_stop.setVisibility(View.GONE);
-        setTotalTime();
-        Intent intent = new Intent(context, SongWordActivity.class);
-        String url = songLists.get(position).url;
-        String lrcUrl = url.replace("mp3", "lrc");
-//        Log.d("url",lrcUrl);
-        intent.putExtra("lrcUrl", lrcUrl);
-        startActivity(intent);
+        if(lv_musicitem.isAllowItemClick()){
+            playMusic(position);
+            SpUtil.putInt(context, Value.POSITIONVALUE, position);
+            bt_play.setVisibility(View.VISIBLE);
+            bt_stop.setVisibility(View.GONE);
+            setTotalTime();
+            Intent intent = new Intent(context, SongWordActivity.class);
+//        intent.putExtra("songList", (Parcelable) songLists);
+            String url = songLists.get(position).url;
+            String lrcUrl = url.replace("mp3", "lrc");
+            if(position>=songLists.size()-1){
+                position=-1;
+            }
+            String nextUrl = songLists.get(position+1).url;
+            String nextlrcUrl = nextUrl.replace("mp3", "lrc");
+            intent.putExtra("nextlrcUrl", nextlrcUrl);
+            intent.putExtra("lrcUrl", lrcUrl);
+            SpUtil.putInt(context,Value.POSITIONVALUE,position);
+            startActivity(intent);
+        }else{
+            lv_musicitem.turnNormal();
+        }
+
     }
 
     @Override

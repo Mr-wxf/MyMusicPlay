@@ -1,5 +1,7 @@
 package com.musicplay.administrator.mymusicplay.Value;
 
+import android.media.MediaPlayer;
+
 /**
  * Created by Administrator on 2016/11/29.
  */
@@ -12,4 +14,5 @@ public class Value {
     * 记录正在播放歌曲的位置
     * */
     public static final String POSITIONVALUE ="SplashValue";
+
 }

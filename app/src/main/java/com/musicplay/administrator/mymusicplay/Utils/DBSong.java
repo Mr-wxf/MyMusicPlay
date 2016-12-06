@@ -8,6 +8,7 @@ import android.util.Log;
 
 import com.musicplay.administrator.mymusicplay.Bean.SongList;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,11 +17,11 @@ import java.util.List;
  *
  * 查询手机中的所有歌曲
  */
-public class QuerySong {
+public class DBSong {
     private Context context;
     private ArrayList<SongList> songList;
 
-    public QuerySong(Context context) {
+    public DBSong(Context context) {
         this.context = context;
     }
 
@@ -46,7 +47,7 @@ public class QuerySong {
 //            Log.d(".........", artist + "");
             String url = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA));
             //歌曲的总播放时长 ：MediaStore.Audio.Media.DURATION
-//            Log.d(".........", url + "");
+            Log.d(".........", url + "");
             int duration = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION));
 //            Log.d(".........", duration + "");
             //歌曲文件的大小 ：MediaStore.Audio.Media.SIZE
@@ -62,4 +63,14 @@ public class QuerySong {
         }
         return songList;
     }
+    public void deleteSong(String url){
+            ContentResolver contentResolver = context.getContentResolver();
+            File file = new File(url);
+        if(file.exists()){
+            file.delete();
+        }
+            contentResolver.delete(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,MediaStore.Audio.Media.DATA+"=?", new String[]{url});
+
+    }
+
 }

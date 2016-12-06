@@ -51,11 +51,11 @@ public class LrcView extends View implements ILrcView {
      */
     private int mHignlightRow = 0;
     /**
-     * 当前高亮歌词的字体颜色为黄色
+     * 当前高亮歌词的字体颜色
      */
     private int mHignlightRowColor = Color.BLUE;
     /**
-     * 不高亮歌词的字体颜色为白色
+     * 不高亮歌词的字体颜色
      */
     private int mNormalRowColor = Color.BLACK;
 
@@ -124,9 +124,6 @@ public class LrcView extends View implements ILrcView {
         mLrcViewListener = l;
     }
 
-    public void setLoadingTipText(String text) {
-        mLoadingLrcTip = text;
-    }
 
     @Override
     protected void onDraw(Canvas canvas) {

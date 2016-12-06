@@ -9,12 +9,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Parcelable;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 import com.musicplay.administrator.mymusicplay.Bean.LrcRow;
+import com.musicplay.administrator.mymusicplay.Bean.SongList;
 import com.musicplay.administrator.mymusicplay.R;
 import com.musicplay.administrator.mymusicplay.Utils.DefaultLrcBuilder;
+import com.musicplay.administrator.mymusicplay.Utils.SpUtil;
+import com.musicplay.administrator.mymusicplay.Value.Value;
 import com.musicplay.administrator.mymusicplay.View.ILrcViewListener;
 import com.musicplay.administrator.mymusicplay.View.LrcView;
 import com.musicplay.administrator.mymusicplay.service.PlayMusicService;
@@ -23,6 +27,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -34,9 +39,6 @@ public class SongWordActivity extends AppCompatActivity {
     private ServiceConnection serviceConnection;
     private PlayMusicService playMusicService;
     private Intent playServiceIntent;
-    private LrcTask mTask;
-    public Timer mTimer;
-    private int mPalyTimerDuration = 500;
     private boolean isRunning=false;
     private Thread uiThread;
     private  Context context;
@@ -48,10 +50,25 @@ public class SongWordActivity extends AppCompatActivity {
 //                mTask = new LrcTask();
 //                mTimer.scheduleAtFixedRate(mTask, 0, mPalyTimerDuration);
 //            }
-            long timePassed = playMusicService.mediaPlayer.getCurrentPosition();
+            long timePassed = playMusicService.mediaPlayer.getCurrentPosition();//当前播放时间
+            int duration = playMusicService.mediaPlayer.getDuration();//总播放时间
+            if(timePassed>=duration){
+                String lrc = getFromAssets(nextlrcUrl);
+//        Log.d("fromAssets",fromAssets);    //从assets目录下读取歌词文件内容
+//        String lrc = getFromAssets("test.lrc");
+                //解析歌词构造器
+                DefaultLrcBuilder defaultLrcBuilder = new DefaultLrcBuilder();
+                //解析歌词返回LrcRow集合
+                List<LrcRow> rows = defaultLrcBuilder.getLrcRows(lrc);
+
+                lv_lrc.setLrc(rows);
+            }
             lv_lrc.seekLrcToTime(timePassed);
+
         }
     };
+    private String nextlrcUrl;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +77,10 @@ public class SongWordActivity extends AppCompatActivity {
         this.context=this;
         Intent intent = getIntent();
         String lrcUrl = intent.getStringExtra("lrcUrl");
+        nextlrcUrl = intent.getStringExtra("nextlrcUrl");
+//        songList = intent.getParcelableExtra("songList");
+//        position = SpUtil.getInt(context, Value.POSITIONVALUE);
+//        Log.d("11111111111111",songList.get(position).url);
         playServiceIntent = new Intent(this, PlayMusicService.class);
         serviceConnection = new ServiceConnection() {
             @Override
@@ -161,7 +182,7 @@ public class SongWordActivity extends AppCompatActivity {
             public void run() {
                 try {
                     while (isRunning) {
-                        Thread.sleep(100);
+                        Thread.sleep(1000);
                         handler.sendEmptyMessage(0);
                     }
                 } catch (InterruptedException e) {
