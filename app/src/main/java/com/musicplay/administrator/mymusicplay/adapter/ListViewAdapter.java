@@ -110,7 +110,7 @@ public class ListViewAdapter extends BaseAdapter {
 
 
     public interface DeleteListener {
-        public void onDelete();
+         void onDelete();
     }
 
     public void setOnDeleteListener(DeleteListener listener) {
